@@ -1,0 +1,68 @@
+apply plugin: 'java'
+apply plugin: 'war'
+
+repositories {
+    mavenCentral()
+}
+dependencies {
+    providedCompile  'com.google.gwt:gwt-user:2.8.0'
+    providedCompile  'com.google.gwt:gwt-dev:2.8.0'
+
+    runtime 'com.google.gwt:gwt-servlet:2.8.0'
+    runtime 'javax.validation:validation-api:1.0.0.GA:sources'
+
+    providedCompile 'org.eclipse.jetty:jetty-server:9.4.0.v20161208'
+    providedCompile 'org.eclipse.jetty:jetty-servlet:9.4.0.v20161208'
+    providedCompile 'org.eclipse.jetty:jetty-jmx:9.4.0.v20161208'
+    providedCompile 'org.eclipse.jetty:jetty-webapp:9.4.0.v20161208'
+    providedCompile 'org.eclipse.jetty:jetty-servlets:9.4.0.v20161208'
+    providedCompile "javax.servlet:javax.servlet-api:3.1.0"
+
+
+    testCompile 'junit:junit:4.12'
+}
+
+def gwtCompileDirPath = "$buildDir/gwtc"
+
+compileJava.dependsOn clean
+
+task compileGwt(dependsOn: compileJava, type: JavaExec) {
+    main = 'com.google.gwt.dev.Compiler'
+    classpath {
+        sourceSets.main.runtimeClasspath + files(sourceSets.main.java.srcDirs)
+    }
+    args = [
+            '-style', 'OBF',
+            '-optimize', '9',
+            '-war', gwtCompileDirPath,
+            '-extra', "$buildDir/extra",
+            'com.google.gwt.sample.stockwatcher.StockWatcher'
+    ]
+}
+
+jar {
+    dependsOn compileGwt
+    manifest {
+        attributes 'Main-Class': 'com.google.gwt.sample.stockwatcher.App'
+    }
+    from(configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }) {
+        exclude "META-INF/*.SF"
+        exclude "META-INF/*.DSA"
+        exclude "META-INF/*.RSA"
+    }
+    doFirst {
+        copy {
+            from webAppDirName
+            into "$sourceSets.main.output.resourcesDir/webapp"
+        }
+        copy {
+            from "$gwtCompileDirPath/stockwatcher/"
+            into "$sourceSets.main.output.resourcesDir/webapp/stockwatcher"
+        }
+    }
+}
+
+war {
+    dependsOn compileGwt
+    from gwtCompileDirPath
+}
